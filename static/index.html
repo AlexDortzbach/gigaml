@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver & Rider Management</title>
+    <style>
+        .message { display: none; }
+        .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        label { display: block; margin-top: 10px; }
+        input, select { margin-top: 5px; padding: 5px; width: 200px; }
+        button { margin-top: 15px; padding: 10px 20px; }
+    </style>
+</head>
+<body>
+    <div id="message" class="message"></div>
+
+    <div class="form-section">
+        <h2>Add Driver</h2>
+        <form id="driverForm">
+            <label for="driverName">Driver Name:</label>
+            <input type="text" id="driverName" name="driverName" required>
+            <label for="currentX">Current X Coordinate:</label>
+            <input type="number" id="currentX" name="currentX" step="0.000001" required>
+            <label for="currentY">Current Y Coordinate:</label>
+            <input type="number" id="currentY" name="currentY" step="0.000001" required>
+            <button type="submit">Add Driver</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h2>Add Rider</h2>
+        <form id="riderForm">
+            <label for="riderName">Rider Name:</label>
+            <input type="text" id="riderName" name="riderName" required>
+            <button type="submit">Add Rider</button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h2>Create Ride Request</h2>
+        <form id="rideRequestForm">
+            <label for="riderSelect">Select Rider:</label>
+            <select id="riderSelect" name="riderSelect" required>
+                <option value="">-- Select a Rider --</option>
+            </select>
+            <label for="pickupX">Pickup X Coordinate:</label>
+            <input type="number" id="pickupX" name="pickupX" step="0.000001" required>
+            <label for="pickupY">Pickup Y Coordinate:</label>
+            <input type="number" id="pickupY" name="pickupY" step="0.000001" required>
+            <label for="dropoffX">Dropoff X Coordinate:</label>
+            <input type="number" id="dropoffX" name="dropoffX" step="0.000001" required>
+            <label for="dropoffY">Dropoff Y Coordinate:</label>
+            <input type="number" id="dropoffY" name="dropoffY" step="0.000001" required>
+            <button type="submit">Create Ride Request</button>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        function showMessage(text, type = 'success') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            messageEl.style.display = 'block';
+
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        async function loadRiders() {
+            try {
+                const response = await fetch(`${API_BASE}/riders`);
+                if (response.ok) {
+                    const riders = await response.json();
+                    const riderSelect = document.getElementById('riderSelect');
+
+                    // Clear existing options except the first one
+                    riderSelect.innerHTML = '<option value="">-- Select a Rider --</option>';
+
+                    // Add riders to dropdown
+                    riders.forEach(rider => {
+                        const option = document.createElement('option');
+                        option.value = rider.id;
+                        option.textContent = rider.name;
+                        riderSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading riders:', error);
+            }
+        }
+
+        async function addDriver(name, currentX, currentY) {
+            try {
+                const response = await fetch(`${API_BASE}/drivers`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: name, current_x: currentX, current_y: currentY })
+                });
+
+                if (response.ok) {
+                    const driver = await response.json();
+                    showMessage(`Driver "${driver.name}" added successfully!`);
+                    document.getElementById('driverForm').reset();
+                } else {
+                    showMessage('Error adding driver', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding driver:', error);
+                showMessage('Error adding driver', 'error');
+            }
+        }
+
+        async function addRider(name) {
+            try {
+                const response = await fetch(`${API_BASE}/riders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: name })
+                });
+
+                if (response.ok) {
+                    const rider = await response.json();
+                    showMessage(`Rider "${rider.name}" added successfully!`);
+                    document.getElementById('riderForm').reset();
+                    loadRiders(); // Refresh the rider dropdown
+                } else {
+                    showMessage('Error adding rider', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding rider:', error);
+                showMessage('Error adding rider', 'error');
+            }
+        }
+
+        async function createRideRequest(riderId, pickupX, pickupY, dropoffX, dropoffY) {
+            try {
+                const response = await fetch(`${API_BASE}/ride_requests`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        rider_id: riderId,
+                        pickup_x: pickupX,
+                        pickup_y: pickupY,
+                        dropoff_x: dropoffX,
+                        dropoff_y: dropoffY
+                    })
+                });
+
+                if (response.ok) {
+                    const rideRequest = await response.json();
+                    showMessage(`Ride request created successfully! ID: ${rideRequest.id}`);
+                    document.getElementById('rideRequestForm').reset();
+                } else {
+                    const errorData = await response.json();
+                    showMessage(`Error creating ride request: ${errorData.detail}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error creating ride request:', error);
+                showMessage('Error creating ride request', 'error');
+            }
+        }
+
+        document.getElementById('driverForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const driverName = document.getElementById('driverName').value.trim();
+            const currentX = parseFloat(document.getElementById('currentX').value);
+            const currentY = parseFloat(document.getElementById('currentY').value);
+            if (driverName && !isNaN(currentX) && !isNaN(currentY)) {
+                addDriver(driverName, currentX, currentY);
+            }
+        });
+
+        document.getElementById('riderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const riderName = document.getElementById('riderName').value.trim();
+            if (riderName) {
+                addRider(riderName);
+            }
+        });
+
+        document.getElementById('rideRequestForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const riderId = document.getElementById('riderSelect').value;
+            const pickupX = parseFloat(document.getElementById('pickupX').value);
+            const pickupY = parseFloat(document.getElementById('pickupY').value);
+            const dropoffX = parseFloat(document.getElementById('dropoffX').value);
+            const dropoffY = parseFloat(document.getElementById('dropoffY').value);
+
+            if (riderId && !isNaN(pickupX) && !isNaN(pickupY) && !isNaN(dropoffX) && !isNaN(dropoffY)) {
+                createRideRequest(riderId, pickupX, pickupY, dropoffX, dropoffY);
+            } else {
+                showMessage('Please fill in all fields correctly', 'error');
+            }
+        });
+
+        // Load riders when page loads
+        document.addEventListener('DOMContentLoaded', loadRiders);
+    </script>
+</body>
+</html>
